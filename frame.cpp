@@ -8,7 +8,12 @@ Dibuat oleh:
 File : frame.cpp
 */ 
 
+#include <iostream>
+#include <stdio.h>
+#include <string.h>
 #include "frame.h"
+
+using namespace std;
 
 // Getter
 unsigned int getSoh(Frame frame) {
@@ -20,7 +25,7 @@ unsigned int getFrameNumber(Frame frame) {
 unsigned int getStx(Frame frame) {
 	return frame.stx;
 }
-Byte* getData(Frame frame) {
+char* getData(Frame frame) {
 	return frame.data;
 }
 unsigned int getEtx(Frame frame) {
@@ -47,26 +52,44 @@ bool isFrameValid(Frame frame) {
 	return true;
 	// getCheckSum() == countCheckSum()
 }
-Byte countCheckSum() {
+char countCheckSum() {
 	return 'a';
 }
 
 // Setter
-void setDataToFrame(Byte *data, unsigned int frameNumber, Frame *frame) {
-	(*frame).soh = SOH;
-	(*frame).frameNumber = frameNumber;
-	(*frame).stx = STX;
-	(*frame).data = data;
-	(*frame).etx = ETX;
-	(*frame).checkSum = countCheckSum();
+void setDataToFrame(char *data, unsigned int frameNumber, Frame &frame) {
+	frame.soh = SOH;
+	frame.frameNumber = frameNumber;
+	frame.stx = STX;
+	frame.data = data;
+	frame.etx = ETX;
+	frame.checkSum = countCheckSum();
 }
-void setFrameToPointer(Frame frame, Byte *message) {
-	
+void setFrameToPointer(Frame frame, char *message) {
+	cout << "test" << endl;
+	char temp[100];
+	sprintf(temp, "%d", frame.soh);
+	strcat(message, temp);
+	sprintf(temp, "%d", frame.frameNumber);
+	strcat(message, temp);
+	sprintf(temp, "%d", frame.stx);
+	strcat(message, temp);
+	char tempChar[sizeof(frame.data)];
+	for (int i=0; i<sizeof(frame.data)-1; i++) {
+		tempChar[i] = frame.data[i];
+		strcat(message, tempChar);
+	}
+	sprintf(temp, "%d", frame.etx);
+	strcat(message, temp);
+	sprintf(temp, "%c", frame.checkSum);
+	strcat(message, temp);
 }
-void setPointerToFrame(Byte * message, Frame *frame) {
+void setPointerToFrame(char *message, Frame &frame) {
 
 }
-void setAck(unsigned int ack, unsigned int frameNumber, Byte checkSum, Frame *frame) {
-
+void setAck(unsigned int ackValue, unsigned int frameNumber, char checkSum, Ack &ack) {
+	ack.ack = ackValue;
+	ack.frameNumber = frameNumber;
+	ack.checkSum = checkSum;
 }
 
