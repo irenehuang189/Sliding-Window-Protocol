@@ -1,0 +1,14 @@
+Halo halo :) The whole manuscript is now pervaded by
+such headlines. Speaking headlines are
+not just title-like ("Reinforcement Learn-
+ing"), but centralize the information given
+in the associated section to a single sen-
+tence. In the named instance, an appro-
+priate headline would be "Reinforcement
+learning methods provide feedback to the
+network, whether it behaves good or bad".
+However, such long headlines would bloat
+the table of contents in an unacceptable
+way. So I used short titles like the first one
+in the table of contents, and speaking ones,
+like the latter, throughout the text.
