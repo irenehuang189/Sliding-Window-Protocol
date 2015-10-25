@@ -50,18 +50,33 @@ bool isAckNak(unsigned int x) {
 	return (x == ACK);
 }
 bool isFrameValid(Frame frame) {
-	return true;
-	// getCheckSum() == countCheckSum()
+	return (frame.checkSum == countCheckSum(frame));
 }
 bool isFrameEmpty(Frame frame) {
 	return ((frame.soh==EMPTY) && (frame.frameNumber==EMPTY) && (frame.stx==EMPTY) && (frame.data==NULL) && (frame.etx==EMPTY) && (frame.checkSum==EMPTY));
 }
-int countCheckSum() {
-	return 0;
+int countCheckSum(Frame frame) {
+	char stringFrame[100];
+	setFrameToPointer(frame, stringFrame);
+	unsigned long long checksum = 0;
+	unsigned long long CRC= 0x14B;
+	int i=0;
+	do{
+		checksum = checksum <<8;
+		checksum +=  (unsigned long long)  stringFrame[i];
+		i++;
+	}while(stringFrame[i]!= ETX);
+	checksum = (checksum <<8);
+	for(int i = sizeof(long long)*8; i>8; i--){
+		if((checksum>>(i-1))&1){
+			checksum = checksum ^ (CRC<<(i-9));
+		}
+	}
+	return (int) checksum;
 }
 
 // Setter
-void setEmptyFrame(Frame frame) {
+void setEmptyFrame(Frame &frame) {
 	frame.soh = EMPTY;
 	frame.frameNumber = EMPTY;
 	frame.stx = EMPTY;
@@ -75,7 +90,7 @@ void setDataToFrame(char *data, unsigned int frameNumber, Frame &frame) {
 	frame.stx = STX;
 	frame.data = data;
 	frame.etx = ETX;
-	frame.checkSum = countCheckSum();
+	frame.checkSum = countCheckSum(frame);
 }
 void setFrameToPointer(Frame frame, char *message) {
 	char temp[100];
@@ -135,7 +150,7 @@ void setAck(unsigned int ackValue, unsigned int frameNumber, int checkSum, Ack &
 void setAckToPointer(Ack ack, char *message) {
 	sprintf(message, "%d||%d||%d||", ack.ack, ack.frameNumber, ack.checkSum);
 }
-void setPointerToAck(char *message, Ack ack) {
+void setPointerToAck(char *message, Ack &ack) {
 	int i = 0, iStart = 0;
 	char temp[strlen(message)];
 	for (int nPartition = 0; nPartition < 3; nPartition++) {
