@@ -29,9 +29,12 @@ File : frame.h
 #define XOFF (0x13)
 
 /* Const */
+#define EMPTY 0
 #define BYTESIZE 256 /* The maximum value of a byte */
 #define MAXLEN 1024 /* Maximum messages length */
 #define DATALENGTH 5 /* Data length in frame */
+#define WINDOWSIZE 5
+#define BUFFERSIZE 10
 
 typedef unsigned char Byte;
 typedef struct Frame {
@@ -58,17 +61,18 @@ unsigned int getCheckSum(Frame frame);
 unsigned int getAck(Ack ack);
 unsigned int getFrameNumber(Ack ack);
 unsigned int getCheckSum(Ack ack);
-char countCheckSum();
 
 // Fungsi dan prosedur lainnya
 bool isAckNak(unsigned int x);
 bool isFrameValid(Frame frame);
+bool isFrameEmpty(Frame frame);
+char countCheckSum();
 
 // Setter
+void setEmptyFrame(Frame frame);
 void setDataToFrame(char *data, unsigned int frameNumber, Frame &frame);
 void setFrameToPointer(Frame frame, char *message);
 void setPointerToFrame(char* message, Frame &frame);
 void setAck(unsigned int ackValue, unsigned int frameNumber, char checkSum, Ack &ack);
-
 
 #endif

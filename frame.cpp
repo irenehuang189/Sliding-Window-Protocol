@@ -11,6 +11,7 @@ File : frame.cpp
 #include <iostream>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "frame.h"
 
 using namespace std;
@@ -45,18 +46,29 @@ unsigned int getCheckSum(Ack ack) {
 }
 
 // Fungsi dan prosedur lainnya
-bool isAck(unsigned int x) {
+bool isAckNak(unsigned int x) {
 	return (x == ACK);
 }
 bool isFrameValid(Frame frame) {
 	return true;
 	// getCheckSum() == countCheckSum()
 }
+bool isFrameEmpty(Frame frame) {
+	return ((frame.soh==EMPTY) && (frame.frameNumber==EMPTY) && (frame.stx==EMPTY) && (frame.data==NULL) && (frame.etx==EMPTY) && frame.checkSum=='\0');
+}
 char countCheckSum() {
 	return 'a';
 }
 
 // Setter
+void setEmptyFrame(Frame frame) {
+	frame.soh = EMPTY;
+	frame.frameNumber = EMPTY;
+	frame.stx = EMPTY;
+	frame.data = NULL;
+	frame.etx = EMPTY;
+	frame.checkSum = '\0';
+}
 void setDataToFrame(char *data, unsigned int frameNumber, Frame &frame) {
 	frame.soh = SOH;
 	frame.frameNumber = frameNumber;
@@ -66,26 +78,54 @@ void setDataToFrame(char *data, unsigned int frameNumber, Frame &frame) {
 	frame.checkSum = countCheckSum();
 }
 void setFrameToPointer(Frame frame, char *message) {
-	cout << "test" << endl;
 	char temp[100];
-	sprintf(temp, "%d", frame.soh);
-	strcat(message, temp);
-	sprintf(temp, "%d", frame.frameNumber);
-	strcat(message, temp);
-	sprintf(temp, "%d", frame.stx);
-	strcat(message, temp);
+	sprintf(message, "%d||%d||%d||", frame.soh, frame.frameNumber, frame.stx);
 	char tempChar[sizeof(frame.data)];
-	for (int i=0; i<sizeof(frame.data)-1; i++) {
+	int i = 0;
+	while (frame.data[i] != '\0') {
 		tempChar[i] = frame.data[i];
-		strcat(message, tempChar);
+		i++;
 	}
-	sprintf(temp, "%d", frame.etx);
-	strcat(message, temp);
-	sprintf(temp, "%c", frame.checkSum);
+	strcat(message, tempChar);
+	sprintf(temp, "||%d||%c||", frame.etx, frame.checkSum);
 	strcat(message, temp);
 }
 void setPointerToFrame(char *message, Frame &frame) {
+	int i = 0, iStart = 0;
+	char temp[strlen(message)], messageChar;
+	for (int nPartition = 0; nPartition < 6; nPartition++) {
+		while (message[i] == '|' && message[i+1] == '|') {
+			i++;
+		}
+		// Copy char to frame
+		for (int j = iStart; j < i; j++) {
+			temp[strlen(message)] = message[i];
+			temp[strlen(message)+1] = '\0';
+		}
+		if (nPartition == 0) {
+			// SOH
+			frame.soh = atoi(temp);
+		} else if (nPartition == 1) {
+			// frameNumber
+			frame.frameNumber = atoi(temp);
 
+		} else if (nPartition == 2) {
+			// STX
+			frame.stx = atoi(temp);
+		} else if (nPartition == 3) {
+			// Data
+			strcpy(frame.data, temp);
+		} else if (nPartition == 4) {
+			// ETX
+			frame.etx = atoi(temp);
+		} else {
+			// checkSum
+			frame.checkSum = temp[0];
+		}
+		temp[0] = '\0';
+		//temp = message.substr(iStart, i-iStart);
+		iStart = i+2;
+	}
 }
 void setAck(unsigned int ackValue, unsigned int frameNumber, char checkSum, Ack &ack) {
 	ack.ack = ackValue;
