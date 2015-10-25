@@ -43,12 +43,12 @@ typedef struct Frame {
 	unsigned int stx;
 	char *data;
 	unsigned int etx;
-	char checkSum;
+	int checkSum;
 } Frame;
 typedef struct {
 	unsigned int ack;
 	unsigned int frameNumber;
-	char checkSum;
+	int checkSum;
 } Ack;
 
 // Getter
@@ -66,13 +66,15 @@ unsigned int getCheckSum(Ack ack);
 bool isAckNak(unsigned int x);
 bool isFrameValid(Frame frame);
 bool isFrameEmpty(Frame frame);
-char countCheckSum();
+int countCheckSum();
 
 // Setter
 void setEmptyFrame(Frame frame);
 void setDataToFrame(char *data, unsigned int frameNumber, Frame &frame);
 void setFrameToPointer(Frame frame, char *message);
 void setPointerToFrame(char* message, Frame &frame);
-void setAck(unsigned int ackValue, unsigned int frameNumber, char checkSum, Ack &ack);
+void setAck(unsigned int ackValue, unsigned int frameNumber, int checkSum, Ack &ack);
+void setAckToPointer(Ack ack, char *message);
+void setPointerToAck(char *message, Ack ack);
 
 #endif

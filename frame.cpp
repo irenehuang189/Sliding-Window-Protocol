@@ -54,10 +54,10 @@ bool isFrameValid(Frame frame) {
 	// getCheckSum() == countCheckSum()
 }
 bool isFrameEmpty(Frame frame) {
-	return ((frame.soh==EMPTY) && (frame.frameNumber==EMPTY) && (frame.stx==EMPTY) && (frame.data==NULL) && (frame.etx==EMPTY) && frame.checkSum=='\0');
+	return ((frame.soh==EMPTY) && (frame.frameNumber==EMPTY) && (frame.stx==EMPTY) && (frame.data==NULL) && (frame.etx==EMPTY) && frame.checkSum==EMPTY);
 }
-char countCheckSum() {
-	return 'a';
+int countCheckSum() {
+	return 0;
 }
 
 // Setter
@@ -67,7 +67,7 @@ void setEmptyFrame(Frame frame) {
 	frame.stx = EMPTY;
 	frame.data = NULL;
 	frame.etx = EMPTY;
-	frame.checkSum = '\0';
+	frame.checkSum = EMPTY;
 }
 void setDataToFrame(char *data, unsigned int frameNumber, Frame &frame) {
 	frame.soh = SOH;
@@ -87,12 +87,12 @@ void setFrameToPointer(Frame frame, char *message) {
 		i++;
 	}
 	strcat(message, tempChar);
-	sprintf(temp, "||%d||%c||", frame.etx, frame.checkSum);
+	sprintf(temp, "||%d||%d||", frame.etx, frame.checkSum);
 	strcat(message, temp);
 }
 void setPointerToFrame(char *message, Frame &frame) {
 	int i = 0, iStart = 0;
-	char temp[strlen(message)], messageChar;
+	char temp[strlen(message)];
 	for (int nPartition = 0; nPartition < 6; nPartition++) {
 		while (message[i] == '|' && message[i+1] == '|') {
 			i++;
@@ -127,9 +127,33 @@ void setPointerToFrame(char *message, Frame &frame) {
 		iStart = i+2;
 	}
 }
-void setAck(unsigned int ackValue, unsigned int frameNumber, char checkSum, Ack &ack) {
+void setAck(unsigned int ackValue, unsigned int frameNumber, int checkSum, Ack &ack) {
 	ack.ack = ackValue;
 	ack.frameNumber = frameNumber;
 	ack.checkSum = checkSum;
 }
-
+void setAckToPointer(Ack ack, char *message) {
+	sprintf(message, "%d||%d||%d||", ack.ack, ack.frameNumber, ack.checkSum);
+}
+void setPointerToAck(char *message, Ack ack) {
+	int i = 0, iStart = 0;
+	char temp[strlen(message)];
+	for (int nPartition = 0; nPartition < 3; nPartition++) {
+		while (message[i] == '|' && message[i+1] == '|') {
+			i++;
+		}
+		// Copy char to ack
+		for (int j = iStart; j < i; j++) {
+			temp[strlen(message)] = message[i];
+			temp[strlen(message)+1] = '\0';
+		}
+		if (nPartition == 0) {
+			ack.ack = atoi(temp);
+		} else if (nPartition == 1) {
+			ack.frameNumber = atoi(temp);
+		} else {
+			ack.checkSum = atoi(temp);
+		}
+		iStart = i+2;
+	}
+}
