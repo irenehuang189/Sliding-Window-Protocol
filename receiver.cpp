@@ -13,6 +13,7 @@
 #include <ifaddrs.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <thread>
 #include "frame.h"
 #include "stdbool.h"
 
@@ -20,13 +21,40 @@ using namespace std;
 
 /* Socket */
 int sockfd; // listen on sock_fd
+struct sockaddr_in receiverAddress, remoteAddress; // Alamat 
+socklen_t addrlen = sizeof(remoteAddress);
+Frame buffer[BUFFERSIZE];
+Frame queue[BUFFERSIZE];
+int iBuffer = 0;
 
 /* Functions declaration */
 void initiate(char *servPort);
+void initiate2(char *portNumber);
+void receiveFrame();
+void consumeFrame();
+void sendAckNak(unsigned int ackValue, Frame frame);
+void moveQueueToBuffer();
 
 int main(int argc, char *argv[])
 {
-	initiate(argv[1]);
+	// Memeriksa parameter
+	if (argc < 2) {
+		cout << "Error, tidak ada port yang disediakan" << endl;
+		exit(1);
+	}
+	initiate2(argv[1]);
+
+	// Inisiasi isi queue
+	for (int i = 0; i < BUFFERSIZE; i++) {
+		setEmptyFrame(queue[i]);
+	}
+
+	thread parentThread(receiveFrame);
+	thread childThread(consumeFrame);
+	parentThread.join();
+	childThread.join();
+
+	close(sockfd);
 	return 0;
 }
 
@@ -46,8 +74,7 @@ void initiate(char *servPort){
 	}
 	
 	// Buat socket
-	sockfd = socket(servAddr->ai_family, servAddr->ai_socktype,
-	servAddr->ai_protocol);
+	sockfd = socket(servAddr->ai_family, servAddr->ai_socktype, servAddr->ai_protocol);
 	if (sockfd < 0) {
 		cout << "socket() failed" << endl;
 	}
@@ -73,5 +100,112 @@ void initiate(char *servPort){
 		socklen_t len = sizeof(sin);
 		if (getsockname(sockfd, (struct sockaddr *)&sin, &len) != -1)
 			cout << ntohs(sin.sin_port) << "..." << endl;
+	}
+}
+
+void initiate2(char *portNumber) {
+	// Membuat UDP socket
+	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sockfd < 0) {
+		// Socket bernilai -1 jika gagal dibuat
+		cout << "Socket tidak dapat dibuat" << endl;
+		exit(1);
+	}
+
+	// Bind socket ke alamat IP dan port
+	int portNo = atoi(portNumber);
+	receiverAddress.sin_family = AF_INET;
+	receiverAddress.sin_port = htons(portNo);
+	receiverAddress.sin_addr.s_addr = INADDR_ANY;
+	if (bind(sockfd, (struct sockaddr *)&receiverAddress, sizeof(receiverAddress)) < 0) {
+		cout << "Binding gagal" << endl;
+		close(sockfd);
+		exit(1);
+	} else {
+		cout << "Binding pada " << INADDR_ANY << ":" << portNo << endl;
+	}
+}
+
+void receiveFrame() {
+	// Kamus Lokal
+	int recvlen; // Jumlah bytes yang diterima
+	char data[MAXLEN]; // Data dari transmitter
+	int nReceived = 0; // Jumlah byte yang diterima
+	Frame frame;
+
+	// Algoritma
+	recvlen = recvfrom(sockfd, data, strlen(data), 0, (struct sockaddr *) &remoteAddress, (socklen_t *) &addrlen);
+	cout << data << endl;
+	while (true) {
+		// Ubah pesan menjadi frame
+		// setPointerToFrame(data, frame);
+		// // Periksa apakah data valid
+		// if (isFrameValid(frame)) {
+		// 	// Kirim ACK
+		// 	sendAckNak(ACK, frame);
+		// 	cout << "ACK frame ke-" << getFrameNumber(frame) << " dikirim" << endl;
+		// 	if (iBuffer == getFrameNumber(frame)) {
+		// 		buffer[iBuffer] = frame;
+		// 		// Increment indeks buffer
+		// 		if (iBuffer == WINDOWSIZE) {
+		// 			iBuffer = 0;
+		// 		} else {
+		// 			iBuffer++;
+		// 		}
+		// 	} else {
+		// 		queue[getFrameNumber(frame)] = frame;
+		// 	}
+		// 	moveQueueToBuffer();
+		// } else {
+		// 	sendAckNak(NAK, frame);
+		// }
+		// nReceived++;
+		recvlen = recvfrom(sockfd, data, strlen(data), 0, (struct sockaddr *) &remoteAddress, (socklen_t *) &addrlen);
+		cout << data << endl;
+	}
+	// Mengirim sinyal bahwa program telah berakhir
+}
+
+void consumeFrame() {
+	while (true) {
+		if (!isFrameEmpty(buffer[iBuffer])) {
+			cout << "Frame ke-" << iBuffer << " dikonsumsi: " << getData(buffer[iBuffer]) << endl;
+			setEmptyFrame(buffer[iBuffer]);
+			// Increment indeks buffer
+			if (iBuffer == WINDOWSIZE) {
+				iBuffer = 0;
+			} else {
+				iBuffer++;
+			}
+		}
+	}
+}
+
+void sendAckNak(unsigned int ackValue, Frame frame) {
+	Ack ackMessage;
+	char message[MAXLEN];
+	setAck(ackValue, getFrameNumber(frame), getCheckSum(frame), ackMessage);
+	setAckToPointer(ackMessage, message);
+	sendto(sockfd, message, strlen(message), 0, (struct sockaddr *) &remoteAddress, addrlen);
+}
+
+void moveQueueToBuffer() {
+	// Cari indeks di queue yang terisi
+	int i = 0;
+	bool isFound = false;
+	while (!isFound && (i < BUFFERSIZE)) {
+		if (isFrameEmpty(queue[i])) {
+			isFound = true;
+		} else {
+			i++;
+		}
+	}
+	if (iBuffer == i) {
+		// Pindahkan isi queue ke buffer
+		while (isFrameEmpty(queue[i]) && (i < BUFFERSIZE)) {
+			buffer[i] = queue[i];
+			setEmptyFrame(queue[i]);
+			i++;
+		}
 	}
 }

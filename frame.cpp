@@ -54,7 +54,7 @@ bool isFrameValid(Frame frame) {
 	// getCheckSum() == countCheckSum()
 }
 bool isFrameEmpty(Frame frame) {
-	return ((frame.soh==EMPTY) && (frame.frameNumber==EMPTY) && (frame.stx==EMPTY) && (frame.data==NULL) && (frame.etx==EMPTY) && frame.checkSum==EMPTY);
+	return ((frame.soh==EMPTY) && (frame.frameNumber==EMPTY) && (frame.stx==EMPTY) && (frame.data==NULL) && (frame.etx==EMPTY) && (frame.checkSum==EMPTY));
 }
 int countCheckSum() {
 	return 0;

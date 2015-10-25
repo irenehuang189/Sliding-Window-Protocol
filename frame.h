@@ -29,7 +29,7 @@ File : frame.h
 #define XOFF (0x13)
 
 /* Const */
-#define EMPTY 0
+#define EMPTY -999
 #define BYTESIZE 256 /* The maximum value of a byte */
 #define MAXLEN 1024 /* Maximum messages length */
 #define DATALENGTH 5 /* Data length in frame */
