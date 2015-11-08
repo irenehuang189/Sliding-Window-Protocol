@@ -19,13 +19,16 @@
 
 using namespace std;
 
+#define CONSUME_DELAY 0
+#define RECEIVE_DELAY 2
+
 /* Socket */
 int sockfd; // listen on sock_fd
 struct sockaddr_in receiverAddress, remoteAddress; // Alamat 
 socklen_t addrlen = sizeof(remoteAddress);
 Frame buffer[BUFFERSIZE];
 Frame queue[BUFFERSIZE];
-int iBuffer = 0;
+int iBuffer = 0, iConsumed = 0, nSlide = 0;
 
 /* Functions declaration */
 void initiate(char *servPort);
@@ -42,11 +45,12 @@ int main(int argc, char *argv[])
 		cout << "Error, tidak ada port yang disediakan" << endl;
 		exit(1);
 	}
-	initiate2(argv[1]);
+	initiate(argv[1]);
 
 	// Inisiasi isi queue
 	for (int i = 0; i < BUFFERSIZE; i++) {
 		setEmptyFrame(queue[i]);
+		setEmptyFrame(buffer[i]);
 	}
 
 	thread parentThread(receiveFrame);
@@ -58,52 +62,7 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-void initiate(char *servPort){
-	// Construct the server address structure
-	struct addrinfo addrCriteria;						// Criteria for address
-	memset(&addrCriteria, 0, sizeof(addrCriteria));		// Zero out structure
-	addrCriteria.ai_family = AF_UNSPEC;					// Any address family
-	addrCriteria.ai_flags = AI_PASSIVE;					// Accept on any address/port
-	addrCriteria.ai_socktype = SOCK_DGRAM;				// Only datagram socket
-	addrCriteria.ai_protocol = IPPROTO_UDP;				// Only UDP socket
-	
-	struct addrinfo *servAddr; // List of server addresses
-	int rtnVal = getaddrinfo(NULL, servPort, &addrCriteria, &servAddr);
-	if (rtnVal != 0) {
-		cout << "getaddrinfo() failed" << endl;
-	}
-	
-	// Buat socket
-	sockfd = socket(servAddr->ai_family, servAddr->ai_socktype, servAddr->ai_protocol);
-	if (sockfd < 0) {
-		cout << "socket() failed" << endl;
-	}
-	
-	// Bind ke local address
-	if (bind(sockfd, servAddr->ai_addr, servAddr->ai_addrlen) < 0) {
-		cout << "bind() failed" << endl;
-	} else {
-		struct ifaddrs *ifAddrStruct = NULL;
-		void * tmpAddrPtr = NULL;
-		
-		getifaddrs(&ifAddrStruct);
-		struct ifaddrs *ifa = ifAddrStruct;
-		ifa = ifa->ifa_next;
-		ifa = ifa->ifa_next;
-		ifa = ifa->ifa_next;
-		tmpAddrPtr=&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
-		char addressBuffer[INET_ADDRSTRLEN];
-		inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
-		cout << "Binding pada " << addressBuffer << endl;
-		
-		struct sockaddr_in sin;
-		socklen_t len = sizeof(sin);
-		if (getsockname(sockfd, (struct sockaddr *)&sin, &len) != -1)
-			cout << ntohs(sin.sin_port) << "..." << endl;
-	}
-}
-
-void initiate2(char *portNumber) {
+void initiate(char *portNumber) {
 	// Membuat UDP socket
 	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sockfd < 0) {
@@ -126,58 +85,73 @@ void initiate2(char *portNumber) {
 	}
 }
 
+Frame frameTemp;
 void receiveFrame() {
 	// Kamus Lokal
 	int recvlen; // Jumlah bytes yang diterima
 	char data[MAXLEN]; // Data dari transmitter
 	int nReceived = 0; // Jumlah byte yang diterima
+	int nFrame = 0;
 	Frame frame;
 
 	// Algoritma
-	recvlen = recvfrom(sockfd, data, strlen(data), 0, (struct sockaddr *) &remoteAddress, (socklen_t *) &addrlen);
-	cout << data << endl;
+	recvlen = recvfrom(sockfd, data, MAXLEN, 0, (struct sockaddr *) &remoteAddress, (socklen_t *) &addrlen);
 	while (true) {
 		// Ubah pesan menjadi frame
-		// setPointerToFrame(data, frame);
-		// // Periksa apakah data valid
-		// if (isFrameValid(frame)) {
-		// 	// Kirim ACK
-		// 	sendAckNak(ACK, frame);
-		// 	cout << "ACK frame ke-" << getFrameNumber(frame) << " dikirim" << endl;
-		// 	if (iBuffer == getFrameNumber(frame)) {
-		// 		buffer[iBuffer] = frame;
-		// 		// Increment indeks buffer
-		// 		if (iBuffer == WINDOWSIZE) {
-		// 			iBuffer = 0;
-		// 		} else {
-		// 			iBuffer++;
-		// 		}
-		// 	} else {
-		// 		queue[getFrameNumber(frame)] = frame;
-		// 	}
-		// 	moveQueueToBuffer();
-		// } else {
-		// 	sendAckNak(NAK, frame);
-		// }
-		// nReceived++;
-		recvlen = recvfrom(sockfd, data, strlen(data), 0, (struct sockaddr *) &remoteAddress, (socklen_t *) &addrlen);
-		cout << data << endl;
+		setPointerToFrame(data, frame);
+		nFrame = nSlide*WINDOWSIZE+getFrameNumber(frame)+1;
+		cout << "Menerima frame ke-" << nFrame << ": " << frame.data << endl;
+		cout << "Checksum receiver " << frame.checkSum << endl;
+		// Periksa apakah data valid
+		if (isFrameValid(frame)) {
+			// Kirim ACK
+			sendAckNak(ACK, frame);
+			sendAckNak(ACK, frame);
+			cout << "Mengirim ACK frame ke-" << nFrame << endl;
+			cout << "Window berada di frame " << nFrame << " - " << nFrame+(WINDOWSIZE-1) << endl << endl;
+			if (iBuffer == getFrameNumber(frame)-WINDOWSIZE*nSlide) {
+				setDataToFrame(frame.data, getFrameNumber(frame), buffer[iBuffer]);
+				// Increment indeks buffer
+				if (iBuffer == WINDOWSIZE-1) {
+					iBuffer = 0;
+					nSlide++;
+				} else {
+					iBuffer++;
+				}
+			} else {
+				setDataToFrame(frame.data, getFrameNumber(frame), queue[getFrameNumber(frame)]);
+			}
+			moveQueueToBuffer();
+			sleep(RECEIVE_DELAY);
+		} else {
+			sendAckNak(NAK, frame);
+			cout << "Mengirim NAK frame ke-" << nFrame << endl << endl;
+		}
+		nReceived++;
+		recvlen = recvfrom(sockfd, data, MAXLEN, 0, (struct sockaddr *) &remoteAddress, (socklen_t *) &addrlen);
 	}
 	// Mengirim sinyal bahwa program telah berakhir
 }
 
 void consumeFrame() {
+	Frame f;
+	int nConsumed = 0;
+	int nFrame = 0;
+
 	while (true) {
-		if (!isFrameEmpty(buffer[iBuffer])) {
-			cout << "Frame ke-" << iBuffer << " dikonsumsi: " << getData(buffer[iBuffer]) << endl;
-			setEmptyFrame(buffer[iBuffer]);
+		if (!isFrameEmpty(buffer[iConsumed])) {
+			nFrame = nSlide*WINDOWSIZE+getFrameNumber(buffer[iConsumed])+1;
+			cout << "Mengkonsumsi frame ke-" << nFrame << ": " << buffer[iConsumed].data << endl << endl;
+			setEmptyFrame(buffer[iConsumed]);
 			// Increment indeks buffer
-			if (iBuffer == WINDOWSIZE) {
-				iBuffer = 0;
+			if (iConsumed == WINDOWSIZE-1) {
+				iConsumed = 0;
 			} else {
-				iBuffer++;
+				iConsumed++;
 			}
+			nConsumed++;
 		}
+		sleep(CONSUME_DELAY);
 	}
 }
 
@@ -203,7 +177,7 @@ void moveQueueToBuffer() {
 	if (iBuffer == i) {
 		// Pindahkan isi queue ke buffer
 		while (isFrameEmpty(queue[i]) && (i < BUFFERSIZE)) {
-			buffer[i] = queue[i];
+			setDataToFrame(queue[i].data, getFrameNumber(queue[i]), buffer[i]);
 			setEmptyFrame(queue[i]);
 			i++;
 		}

@@ -29,11 +29,12 @@ File : frame.h
 #define XOFF (0x13)
 
 /* Const */
-#define EMPTY -999
+#define EMPTY 999
 #define BYTESIZE 256 /* The maximum value of a byte */
 #define MAXLEN 1024 /* Maximum messages length */
+#define FRAMELENGTH 100
 #define DATALENGTH 5 /* Data length in frame */
-#define WINDOWSIZE 5
+#define WINDOWSIZE 8
 #define BUFFERSIZE 10
 
 typedef unsigned char Byte;
@@ -41,7 +42,7 @@ typedef struct Frame {
 	unsigned int soh;
 	unsigned int frameNumber;
 	unsigned int stx;
-	char *data;
+	char data[DATALENGTH];
 	unsigned int etx;
 	int checkSum;
 } Frame;
@@ -55,7 +56,7 @@ typedef struct {
 unsigned int getSoh(Frame frame);
 unsigned int getFrameNumber(Frame frame);
 unsigned int getStx(Frame frame);
-char* getData(Frame frame);
+char getData(Frame frame, int idx);
 unsigned int getEtx(Frame frame);
 unsigned int getCheckSum(Frame frame);
 unsigned int getAck(Ack ack);
@@ -67,12 +68,14 @@ bool isAckNak(unsigned int x);
 bool isFrameValid(Frame frame);
 bool isFrameEmpty(Frame frame);
 int countCheckSum(Frame frame);
+int countCheckSum(char *stringFrame);
 
 // Setter
 void setEmptyFrame(Frame &frame);
 void setDataToFrame(char *data, unsigned int frameNumber, Frame &frame);
 void setFrameToPointer(Frame frame, char *message);
 void setPointerToFrame(char* message, Frame &frame);
+void setFrameToString(Frame frame, char *word);
 void setAck(unsigned int ackValue, unsigned int frameNumber, int checkSum, Ack &ack);
 void setAckToPointer(Ack ack, char *message);
 void setPointerToAck(char *message, Ack &ack);
